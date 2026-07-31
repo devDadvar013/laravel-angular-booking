@@ -1,0 +1,90 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: booking_db
+      DB_USERNAME: booking_user
+      DB_PASSWORD: booking_pass
+      CACHE_STORE: redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_TTL: 60
+      QUEUE_CONNECTION: redis
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_ENCRYPTION: ${MAIL_ENCRYPTION:-tls}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@booking.com}
+      BOOKING_EXPIRATION_MINUTES: ${BOOKING_EXPIRATION_MINUTES:-30}
+    depends_on:
+      - postgres
+      - redis
+
+  # کانتینر جدا برای اجرای «php artisan schedule:work»، معادل @Cron(EVERY_5_MINUTES)
+  # در tasks/cleanup.service.ts نسخه NestJS اصلی
+  scheduler:
+    build: .
+    command: php artisan schedule:work
+    environment:
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: booking_db
+      DB_USERNAME: booking_user
+      DB_PASSWORD: booking_pass
+      CACHE_STORE: redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - postgres
+      - redis
+
+  # کانتینر جدا برای پردازش صف ایمیل تأییدیه به‌صورت async (بدون بلاک کردن پاسخ API)
+  queue-worker:
+    build: .
+    command: php artisan queue:work --tries=3
+    environment:
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: booking_db
+      DB_USERNAME: booking_user
+      DB_PASSWORD: booking_pass
+      CACHE_STORE: redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      QUEUE_CONNECTION: redis
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: booking_db
+      POSTGRES_USER: booking_user
+      POSTGRES_PASSWORD: booking_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - booking_pg_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+volumes:
+  booking_pg_data:

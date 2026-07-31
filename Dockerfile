@@ -10,8 +10,13 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/html
 COPY . .
 
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+# --no-scripts: don't run artisan commands (optimize:clear, cache:clear, ...) during build.
+# At build time there's no Redis/DB available yet, so those commands would fail.
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
+
+RUN chmod +x docker-entrypoint.sh
 
 EXPOSE 8000
 
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]

@@ -5,7 +5,7 @@
 // در main.ts نسخه NestJS اصلی
 
 return [
-    'paths' => ['bookings/*', 'up'],
+    'paths' => ['*', 'up'],
 
     'allowed_methods' => ['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'OPTIONS'],
 

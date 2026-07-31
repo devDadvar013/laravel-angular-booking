@@ -66,7 +66,10 @@ return [
             // 'username' => env('REDIS_USERNAME'),
             // 'password' => env('REDIS_PASSWORD'),
             // 'port' => env('REDIS_PORT', '6379'),
-            // 'database' => env('REDIS_DB', '0'),
+            // Upstash (و اکثر سرویس‌های Redis سرورلس) فقط از دیتابیس شماره 0
+            // پشتیبانی می‌کنند؛ به همین دلیل اینجا صراحتاً 0 ست شده و به
+            // REDIS_DB وابسته نیست (که ممکن است روی مقدار دیگری تنظیم شده باشد).
+            'database' => env('REDIS_DB', '0'),
         ],
 
         'cache' => [
@@ -75,7 +78,9 @@ return [
             // 'username' => env('REDIS_USERNAME'),
             // 'password' => env('REDIS_PASSWORD'),
             // 'port' => env('REDIS_PORT', '6379'),
-            // 'database' => env('REDIS_CACHE_DB', '1'),
+            // نکته مهم: پیش‌فرض استاندارد لاراول اینجا '1' است، اما Upstash
+            // فقط دیتابیس 0 را پشتیبانی می‌کند، پس پیش‌فرض را به 0 تغییر دادیم.
+            'database' => env('REDIS_CACHE_DB', '0'),
         ],
     ],
 ];

@@ -50,6 +50,11 @@ class BookingService
                 ->where('start_time', '<', $endTime)
                 ->where('end_time', '>', $startTime)
                 ->lockForUpdate()
+                // نکته: PostgreSQL اجازه نمی‌دهد FOR UPDATE با توابع تجمیعی مثل
+                // count() ترکیب شود (خطای "FOR UPDATE is not allowed with
+                // aggregate functions"). به همین دلیل ردیف‌ها را با get() واکشی
+                // (و در همان لحظه قفل) می‌کنیم و تعداد آن‌ها را در PHP می‌شماریم.
+                ->get()
                 ->count();
 
             if ($overlappingCount > 0) {

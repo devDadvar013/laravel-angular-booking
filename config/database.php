@@ -12,6 +12,9 @@ return [
             // اگر DATABASE_URL تنظیم شده باشد، Laravel آن را parse کرده و مقادیر
             // host/port/database/username/password/sslmode را از همان می‌خواند؛
             // مقادیر جداگانه‌ی زیر فقط وقتی استفاده می‌شوند که DATABASE_URL خالی باشد.
+           'options' => [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            ],
             'url' => env('DATABASE_URL'),
             'host' => env('DB_HOST', '127.0.0.1'),
             'port' => env('DB_PORT', '5432'),

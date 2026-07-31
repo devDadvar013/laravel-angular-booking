@@ -35,6 +35,12 @@
             "@php artisan cache:clear",
             "@php artisan view:clear",
             "@php artisan optimize"
+        ],
+        "setup": [
+            "@php artisan app:setup --force"
+        ],
+        "seed": [
+            "@php artisan migrate:fresh --seed --force"
         ]
     },
     "extra": {

@@ -4,11 +4,15 @@ namespace App\Models;
 
 use App\Enums\BookingStatus;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Booking extends Model
 {
-    use HasUuids;
+    // HasUuids: شناسه‌ی UUID برای هر رزرو تولید می‌کند
+    // HasFactory: متد factory() را فعال می‌کند تا seeder بتواند
+    //             Booking::factory()->count(N)->create() بزند
+    use HasFactory, HasUuids;
 
     protected $table = 'bookings';
 

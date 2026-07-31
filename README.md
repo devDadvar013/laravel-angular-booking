@@ -120,6 +120,27 @@ php artisan schedule:work
 * * * * * cd /path-to-project && php artisan schedule:run >> /dev/null 2>&1
 ```
 
+### راه‌اندازی از طریق URL (وقتی SSH ندارید)
+
+اگر به سرور دسترسی SSH ندارید (مثلاً Railway/Render/Fly)، می‌توانید با
+زدن یک آدرس، migration و seeder را اجرا کنید. **بدون نیاز به توکن، مستقیم
+کار می‌کند:**
+
+```
+GET  https://your-app.com/setup             (همه‌ی migration های pending + seeder)
+GET  https://your-app.com/setup?fresh=1      (drop همه و از نو ساختن)
+POST https://your-app.com/setup             (همان رفتار)
+```
+
+برای بستن کامل این مسیر (مثلاً در production بعد از راه‌اندازی):
+
+```env
+SETUP_ENABLED=false
+```
+
+در production، `?fresh=1` فقط در صورتی کار می‌کند که
+`ALLOW_DESTRUCTIVE_SETUP=true` باشد. (migration معمولی همیشه مجاز است.)
+
 ## اجرا با Docker
 
 ```bash

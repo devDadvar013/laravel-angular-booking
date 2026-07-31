@@ -1,8 +1,75 @@
 <?php
 
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\SetupController;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 
+// ============================================================================
+// مسیرهای راه‌اندازی دیتابیس (همه بدون توکن — در صورت نیاز SETUP_ENABLED=false)
+// ============================================================================
+
+// ۱. اجرای کامل migration (drop + از نو ساختن همه‌ی جدول‌ها) — بدون seed
+Route::get('/run-migrations', function () {
+    try {
+        Artisan::call('migrate:fresh', ['--force' => true]);
+        return response()->json([
+            'status' => 'success',
+            'mode' => 'migrate:fresh',
+            'output' => Artisan::output(),
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage(),
+        ], 500);
+    }
+});
+
+// ۲. اجرای همه‌ی migration + seeder (drop + از نو + seed)
+Route::get('/run-migrations-with-seed', function () {
+    try {
+        Artisan::call('migrate:fresh', [
+            '--seed'  => true,
+            '--force' => true,
+        ]);
+        return response()->json([
+            'status' => 'success',
+            'mode' => 'migrate:fresh --seed',
+            'output' => Artisan::output(),
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage(),
+        ], 500);
+    }
+});
+
+// ۳. wipe همه‌ی جدول‌ها و سپس فقط migration های pending را اجرا کن
+Route::get('/force-reset', function () {
+    try {
+        Artisan::call('db:wipe', ['--force' => true]);
+        Artisan::call('migrate', ['--force' => true]);
+        return response()->json([
+            'status' => 'success',
+            'mode' => 'db:wipe + migrate',
+            'output' => Artisan::output(),
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage(),
+        ], 500);
+    }
+});
+
+// ۴. مسیر /setup عمومی (همان کنترلر قبلی، migrate + seed)
+Route::match(['get', 'post'], '/setup', [SetupController::class, 'run']);
+
+// ============================================================================
+// مسیرهای اصلی رزرو
+// ============================================================================
 Route::controller(BookingController::class)->prefix('bookings')->group(function () {
     Route::post('/', 'store');
     Route::get('/', 'index');

@@ -3,6 +3,7 @@
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\SetupController;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 // ============================================================================
@@ -12,6 +13,8 @@ use Illuminate\Support\Facades\Route;
 // ۱. اجرای کامل migration (drop + از نو ساختن همه‌ی جدول‌ها) — بدون seed
 Route::get('/run-migrations', function () {
     try {
+        // قطع اتصال قبلی تا ترنزکیست خراب قبلی روی این درخواست تأثیر نگذارد
+        DB::connection()->disconnect();
         Artisan::call('migrate:fresh', ['--force' => true]);
         return response()->json([
             'status' => 'success',
@@ -29,6 +32,7 @@ Route::get('/run-migrations', function () {
 // ۲. اجرای همه‌ی migration + seeder (drop + از نو + seed)
 Route::get('/run-migrations-with-seed', function () {
     try {
+        DB::connection()->disconnect();
         Artisan::call('migrate:fresh', [
             '--seed'  => true,
             '--force' => true,
@@ -49,6 +53,7 @@ Route::get('/run-migrations-with-seed', function () {
 // ۳. wipe همه‌ی جدول‌ها و سپس فقط migration های pending را اجرا کن
 Route::get('/force-reset', function () {
     try {
+        DB::connection()->disconnect();
         Artisan::call('db:wipe', ['--force' => true]);
         Artisan::call('migrate', ['--force' => true]);
         return response()->json([

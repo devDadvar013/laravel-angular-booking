@@ -17,9 +17,20 @@ class BookingController extends Controller
     // POST /bookings
     public function store(CreateBookingRequest $request): JsonResponse
     {
-        $booking = $this->bookingService->createBooking($request->validated());
-
-        return response()->json($booking, 201);
+        try {
+            $booking = $this->bookingService->createBooking($request->validated());
+            return response()->json($booking, 201);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('خطا در ایجاد رزرو: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'data' => $request->validated(),
+            ]);
+            return response()->json([
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ], 500);
+        }
     }
 
     // GET /bookings?page=1&limit=10&resourceId=room-1&status=confirmed

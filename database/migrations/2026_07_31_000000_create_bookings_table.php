@@ -31,7 +31,9 @@ return new class extends Migration
             $table->timestampTz('start_time');
             $table->timestampTz('end_time');
 
-            $table->enum('status', ['pending', 'confirmed', 'cancelled', 'expired'])
+            // از string به جای enum استفاده می‌کنیم چون PostgreSQL native enum
+            // با Laravel مشکل ایجاد می‌کند. validation در BookingService انجام می‌شود.
+            $table->string('status', 20)
                 ->default('pending');
 
             // مهلت پرداخت/تأیید؛ اگر تا این زمان تأیید نشود، توسط دستور

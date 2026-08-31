@@ -39,25 +39,20 @@ class BookingService
         $startTime = new \DateTime($data['startTime']);
         $endTime = new \DateTime($data['endTime']);
 
-        DB::statement('SET TRANSACTION ISOLATION LEVEL SERIALIZABLE');
+        // اتصال تمیز تضمین می‌کند ترنزکیست خراب قبلی مشکلی ایجاد نکند
+        DB::connection()->reconnect();
 
         $booking = DB::transaction(function () use ($data, $startTime, $endTime) {
-            $overlappingCount = Booking::query()
+            // شرط استاندارد هم‌پوشانی دو بازه زمانی:
+            // existing.start < new.end AND existing.end > new.start
+            $overlapping = Booking::query()
                 ->where('resource_id', $data['resourceId'])
-                ->whereIn('status', [BookingStatus::PENDING, BookingStatus::CONFIRMED])
-                // شرط استاندارد هم‌پوشانی دو بازه زمانی:
-                // existing.start < new.end AND existing.end > new.start
+                ->whereIn('status', [BookingStatus::PENDING->value, BookingStatus::CONFIRMED->value])
                 ->where('start_time', '<', $endTime)
                 ->where('end_time', '>', $startTime)
-                ->lockForUpdate()
-                // نکته: PostgreSQL اجازه نمی‌دهد FOR UPDATE با توابع تجمیعی مثل
-                // count() ترکیب شود (خطای "FOR UPDATE is not allowed with
-                // aggregate functions"). به همین دلیل ردیف‌ها را با get() واکشی
-                // (و در همان لحظه قفل) می‌کنیم و تعداد آن‌ها را در PHP می‌شماریم.
-                ->get()
-                ->count();
+                ->exists();
 
-            if ($overlappingCount > 0) {
+            if ($overlapping) {
                 throw new BookingConflictException($data['resourceId']);
             }
 
@@ -72,7 +67,7 @@ class BookingService
                 'customer_email' => $data['customerEmail'],
                 'start_time' => $startTime,
                 'end_time' => $endTime,
-                'status' => BookingStatus::PENDING,
+                'status' => BookingStatus::PENDING->value,
                 'expires_at' => $expiresAt,
             ]);
         }, 3); // ۳ بار تلاش مجدد در صورت بروز deadlock
@@ -110,7 +105,7 @@ class BookingService
 
         $bookings = Booking::query()
             ->where('resource_id', $resourceId)
-            ->whereIn('status', [BookingStatus::PENDING, BookingStatus::CONFIRMED])
+            ->whereIn('status', [BookingStatus::PENDING->value, BookingStatus::CONFIRMED->value])
             ->where('start_time', '<', $dayEnd)
             ->where('end_time', '>', $dayStart)
             ->orderBy('start_time')
@@ -199,13 +194,13 @@ class BookingService
         }
 
         if ($booking->expires_at && $booking->expires_at->isPast()) {
-            $booking->status = BookingStatus::EXPIRED;
+            $booking->status = BookingStatus::EXPIRED->value;
             $booking->save();
 
             throw new NotFoundHttpException('مهلت این رزرو به پایان رسیده است. لطفاً دوباره رزرو کنید.');
         }
 
-        $booking->status = BookingStatus::CONFIRMED;
+        $booking->status = BookingStatus::CONFIRMED->value;
         $booking->expires_at = null;
         $booking->save();
 
@@ -215,7 +210,7 @@ class BookingService
     public function cancelBooking(string $id): Booking
     {
         $booking = $this->findOne($id);
-        $booking->status = BookingStatus::CANCELLED;
+        $booking->status = BookingStatus::CANCELLED->value;
         $booking->save();
 
         $this->invalidateAvailabilityCache($booking->resource_id, $booking->start_time);
@@ -230,9 +225,9 @@ class BookingService
     public function expireOverdueBookings(): int
     {
         return Booking::query()
-            ->where('status', BookingStatus::PENDING)
+            ->where('status', BookingStatus::PENDING->value)
             ->whereNotNull('expires_at')
             ->where('expires_at', '<', now())
-            ->update(['status' => BookingStatus::EXPIRED]);
+            ->update(['status' => BookingStatus::EXPIRED->value]);
     }
 }

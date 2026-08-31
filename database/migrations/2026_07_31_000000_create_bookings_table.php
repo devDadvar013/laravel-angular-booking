@@ -8,6 +8,17 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // اگر جدول از قبل وجود دارد، فقط ایندکس را بررسی کن
+        if (Schema::hasTable('bookings')) {
+            // اضافه کردن ایندکس اگر وجود ندارد
+            if (!Schema::hasIndex('bookings', 'bookings_resource_id_start_time_end_time_index')) {
+                Schema::table('bookings', function (Blueprint $table) {
+                    $table->index(['resource_id', 'start_time', 'end_time']);
+                });
+            }
+            return;
+        }
+
         Schema::create('bookings', function (Blueprint $table) {
             $table->uuid('id')->primary();
 

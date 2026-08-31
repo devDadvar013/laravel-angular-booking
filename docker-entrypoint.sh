@@ -22,6 +22,11 @@ php artisan config:cache
 php artisan route:cache
 
 # Run pending migrations automatically on startup (remove this if you prefer running migrations manually)
-php artisan migrate --force
+# If migration fails, log warning but don't crash - app can still run
+if php artisan migrate --force 2>&1; then
+    echo "✅ Migrations completed successfully"
+else
+    echo "⚠️  Migrations had issues - continuing anyway"
+fi
 
 exec "$@"

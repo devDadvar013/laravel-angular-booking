@@ -72,6 +72,31 @@ Route::get('/force-reset', function () {
 // ۴. مسیر /setup عمومی (همان کنترلر قبلی، migrate + seed)
 Route::match(['get', 'post'], '/setup', [SetupController::class, 'run']);
 
+// ۵. تست اتصال دیتابیس — فقط برای دیباگ
+Route::get('/db-test', function () {
+    try {
+        $connection = DB::connection();
+        $connection->reconnect();
+        $tables = $connection->select($connection->raw(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+        ));
+        return response()->json([
+            'status' => 'connected',
+            'driver' => config('database.default'),
+            'host' => config('database.connections.pgsql.host'),
+            'database' => config('database.connections.pgsql.database'),
+            'tables' => $tables,
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+        ], 500);
+    }
+});
+
 // ============================================================================
 // مسیرهای اصلی رزرو
 // ============================================================================

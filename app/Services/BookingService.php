@@ -39,15 +39,15 @@ class BookingService
         $startTime = new \DateTime($data['startTime']);
         $endTime = new \DateTime($data['endTime']);
 
-        // اتصال تمیز تضمین می‌کند ترنزکیست خراب قبلی مشکلی ایجاد نکند
-        DB::connection()->reconnect();
+        // قطع اتصال قبلی و ساخت اتصال کاملاً تمیز
+        DB::connection()->disconnect();
 
         $booking = DB::transaction(function () use ($data, $startTime, $endTime) {
             // شرط استاندارد هم‌پوشانی دو بازه زمانی:
             // existing.start < new.end AND existing.end > new.start
             $overlapping = Booking::query()
                 ->where('resource_id', $data['resourceId'])
-                ->whereIn('status', [BookingStatus::PENDING->value, BookingStatus::CONFIRMED->value])
+                ->whereIn('status', ['pending', 'confirmed'])
                 ->where('start_time', '<', $endTime)
                 ->where('end_time', '>', $startTime)
                 ->exists();
@@ -105,8 +105,8 @@ class BookingService
 
         $bookings = Booking::query()
             ->where('resource_id', $resourceId)
-            ->whereIn('status', [BookingStatus::PENDING->value, BookingStatus::CONFIRMED->value])
-            ->where('start_time', '<', $dayEnd)
+                ->whereIn('status', ['pending', 'confirmed'])
+                ->where('start_time', '<', $dayEnd)
             ->where('end_time', '>', $dayStart)
             ->orderBy('start_time')
             ->get()
@@ -225,9 +225,9 @@ class BookingService
     public function expireOverdueBookings(): int
     {
         return Booking::query()
-            ->where('status', BookingStatus::PENDING->value)
+            ->where('status', 'pending')
             ->whereNotNull('expires_at')
             ->where('expires_at', '<', now())
-            ->update(['status' => BookingStatus::EXPIRED->value]);
+            ->update(['status' => 'expired']);
     }
 }

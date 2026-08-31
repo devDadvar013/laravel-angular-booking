@@ -141,4 +141,13 @@ class BookingTest extends TestCase
         $response->assertJsonCount(3, 'data');
         $response->assertJsonPath('meta.totalItems', 3);
     }
+    public function test_database_health_endpoint_reports_schema(): void
+    {
+        $response = $this->getJson('/db-test');
+
+        $response->assertOk();
+        $response->assertJsonPath('status', 'connected');
+        $response->assertJsonPath('bookings_table', 'bookings');
+    }
+
 }

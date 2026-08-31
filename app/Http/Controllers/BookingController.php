@@ -26,9 +26,9 @@ class BookingController extends Controller
                 'data' => $request->validated(),
             ]);
             return response()->json([
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
+                'message' => app()->hasDebugModeEnabled()
+                    ? $e->getMessage()
+                    : 'خطایی هنگام ایجاد رزرو رخ داد. لطفاً دوباره تلاش کنید.',
             ], 500);
         }
     }

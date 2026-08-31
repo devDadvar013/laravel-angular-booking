@@ -1,115 +1,108 @@
 <?php
 
 use App\Http\Controllers\BookingController;
-use App\Http\Controllers\SetupController;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
-// ============================================================================
-// مسیرهای راه‌اندازی دیتابیس (همه بدون توکن — در صورت نیاز SETUP_ENABLED=false)
-// ============================================================================
-
-// ۱. اجرای کامل migration (drop + از نو ساختن همه‌ی جدول‌ها) — بدون seed
-Route::get('/run-migrations', function () {
-    try {
-        // قطع اتصال قبلی تا ترنزکیست خراب قبلی روی این درخواست تأثیر نگذارد
-        DB::connection()->disconnect();
-        Artisan::call('migrate:fresh', ['--force' => true]);
-        return response()->json([
-            'status' => 'success',
-            'mode' => 'migrate:fresh',
-            'output' => Artisan::output(),
-        ]);
-    } catch (\Exception $e) {
-        return response()->json([
-            'status' => 'error',
-            'message' => $e->getMessage(),
-        ], 500);
-    }
-});
-
-// ۲. اجرای همه‌ی migration + seeder (drop + از نو + seed)
-Route::get('/run-migrations-with-seed', function () {
-    try {
-        DB::connection()->disconnect();
-        Artisan::call('migrate:fresh', [
-            '--seed'  => true,
-            '--force' => true,
-        ]);
-        return response()->json([
-            'status' => 'success',
-            'mode' => 'migrate:fresh --seed',
-            'output' => Artisan::output(),
-        ]);
-    } catch (\Exception $e) {
-        return response()->json([
-            'status' => 'error',
-            'message' => $e->getMessage(),
-        ], 500);
-    }
-});
-
-// ۳. wipe همه‌ی جدول‌ها و سپس فقط migration های pending را اجرا کن
-Route::get('/force-reset', function () {
-    try {
-        DB::connection()->disconnect();
-        Artisan::call('db:wipe', ['--force' => true]);
-        Artisan::call('migrate', ['--force' => true]);
-        return response()->json([
-            'status' => 'success',
-            'mode' => 'db:wipe + migrate',
-            'output' => Artisan::output(),
-        ]);
-    } catch (\Exception $e) {
-        return response()->json([
-            'status' => 'error',
-            'message' => $e->getMessage(),
-        ], 500);
-    }
-});
-
-// ۴. مسیر /setup عمومی (همان کنترلر قبلی، migrate + seed)
-Route::match(['get', 'post'], '/setup', [SetupController::class, 'run']);
-
-// ۵. تست اتصال دیتابیس — فقط برای دیباگ
+// -----------------------------------------------------------------------------
+// Health / diagnostics
+// -----------------------------------------------------------------------------
 Route::get('/db-test', function () {
     try {
-        $connection = DB::connection();
-        $connection->reconnect();
-        $tables = $connection->select($connection->raw(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
-        ));
+        DB::connection()->getPdo();
+
+        $driver = DB::getDriverName();
+        $bookingsTable = null;
+        $statusType = null;
+
+        if ($driver === 'pgsql') {
+            $schema = DB::selectOne(<<<'SQL'
+                SELECT
+                    to_regclass('public.bookings') AS bookings_table,
+                    (SELECT data_type
+                     FROM information_schema.columns
+                     WHERE table_schema = 'public'
+                       AND table_name = 'bookings'
+                       AND column_name = 'status') AS status_type
+            SQL);
+            $bookingsTable = $schema->bookings_table ?? null;
+            $statusType = $schema->status_type ?? null;
+        } elseif ($driver === 'sqlite') {
+            $bookingsTable = DB::getSchemaBuilder()->hasTable('bookings') ? 'bookings' : null;
+        }
+
         return response()->json([
             'status' => 'connected',
-            'driver' => config('database.default'),
-            'host' => config('database.connections.pgsql.host'),
-            'database' => config('database.connections.pgsql.database'),
-            'tables' => $tables,
+            'driver' => $driver,
+            'bookings_table' => $bookingsTable,
+            'status_type' => $statusType,
         ]);
-    } catch (\Exception $e) {
+    } catch (\Throwable $e) {
         return response()->json([
             'status' => 'error',
-            'message' => $e->getMessage(),
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
+            'message' => app()->hasDebugModeEnabled()
+                ? $e->getMessage()
+                : 'Database connection failed.',
         ], 500);
     }
 });
 
-// ============================================================================
-// مسیرهای اصلی رزرو
-// ============================================================================
+// -----------------------------------------------------------------------------
+// Optional setup endpoint. In production it requires SETUP_TOKEN.
+// Use ?fresh=1 only when ALLOW_DESTRUCTIVE_SETUP=true.
+// -----------------------------------------------------------------------------
+Route::match(['get', 'post'], '/setup', function () {
+    if (! env('SETUP_ENABLED', false)) {
+        return response()->json(['ok' => false, 'message' => 'Setup is disabled.'], 403);
+    }
+
+    $expectedToken = (string) env('SETUP_TOKEN', '');
+    $providedToken = (string) request()->header('X-Setup-Token', request()->query('token', ''));
+
+    if ($expectedToken === '' || ! hash_equals($expectedToken, $providedToken)) {
+        return response()->json(['ok' => false, 'message' => 'Unauthorized.'], 401);
+    }
+
+    $fresh = request()->boolean('fresh');
+    if ($fresh && ! env('ALLOW_DESTRUCTIVE_SETUP', false)) {
+        return response()->json([
+            'ok' => false,
+            'message' => 'Destructive setup is disabled. Set ALLOW_DESTRUCTIVE_SETUP=true temporarily.',
+        ], 403);
+    }
+
+    try {
+        $args = ['--force' => true, '--seed' => true];
+        if ($fresh) {
+            $args['--drop-views'] = true;
+            Artisan::call('migrate:fresh', $args);
+        } else {
+            Artisan::call('migrate', $args);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'mode' => $fresh ? 'migrate:fresh --seed' : 'migrate --seed',
+            'output' => Artisan::output(),
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'ok' => false,
+            'message' => app()->hasDebugModeEnabled() ? $e->getMessage() : 'Setup failed.',
+        ], 500);
+    }
+});
+
+// -----------------------------------------------------------------------------
+// Booking API
+// -----------------------------------------------------------------------------
 Route::controller(BookingController::class)->prefix('bookings')->group(function () {
     Route::post('/', 'store');
     Route::get('/', 'index');
-
-    // این دو مسیر باید قبل از '/{id}' تعریف شوند تا با آن اشتباه گرفته نشوند
-    // (دقیقاً همان نکته‌ای که در کامنت booking.controller.ts نسخه NestJS اصلی بود)
     Route::get('/resources', 'resources');
     Route::get('/availability/{resourceId}', 'availability');
-
-    Route::get('/{id}', 'show');
     Route::patch('/{id}/confirm', 'confirm');
     Route::patch('/{id}/cancel', 'cancel');
+    Route::get('/{id}', 'show');
 });

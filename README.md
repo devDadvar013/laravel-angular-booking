@@ -27,7 +27,7 @@
 | مورد | نسخه‌ی NestJS اصلی | این نسخه (Laravel) |
 |---|---|---|
 | دیتابیس | PostgreSQL (TypeORM) | **PostgreSQL** (Eloquent) |
-| ایزوله‌سازی تراکنش | `SERIALIZABLE` + `pessimistic_write` | `SET TRANSACTION ISOLATION LEVEL SERIALIZABLE` + `lockForUpdate()` |
+| ایزوله‌سازی تراکنش | `SERIALIZABLE` + `pessimistic_write` | `SERIALIZABLE` + PostgreSQL advisory transaction lock |
 | کش | `@nestjs/cache-manager` + Redis | Laravel `Cache` facade با درایور `redis` |
 | ارسال ایمیل | nodemailer، fire-and-forget (`.catch()` بدون await) | `Mail::queue()` (صف Redis/DB)، غیربلاک‌کننده |
 | Cron | `@nestjs/schedule` هر ۵ دقیقه | `routes/console.php` + `Schedule::command()->everyFiveMinutes()` |
